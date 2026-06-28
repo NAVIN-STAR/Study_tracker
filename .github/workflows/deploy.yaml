@@ -36,7 +36,9 @@ jobs:
               --id ${{ secrets.CF_ACCESS_CLIENT_ID }} \
               --secret ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           EOF
-
+      - name: Show SSH Config
+        run: |
+            cat ~/.ssh/config  
       - name: Deploy Application
         run: |
           ssh -o StrictHostKeyChecking=no ssh.nabinlabs.in << 'EOF'
