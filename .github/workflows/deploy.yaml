@@ -42,4 +42,5 @@ jobs:
             ssh ssh.nabinlabs.in << 'EOF'
             cd /opt/apps/study-tracker/Study_tracker
             ./deploy.sh
+            sudo systemctl restart studytracker
             EOF
