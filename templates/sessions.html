@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">All sessions</div>
+      <div class="page-sub">Everything you've logged so far</div>
+    </div>
+    <a href="/" class="btn btn-sm">← Back to today</a>
+  </div>
+
+  {% if sessions %}
+  <div class="card" style="padding:0; overflow:hidden;">
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr style="background:var(--surface2);">
+          <th style="text-align:left; padding:12px 16px; font-size:11px; color:var(--muted); font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">Date</th>
+          <th style="text-align:left; padding:12px 16px; font-size:11px; color:var(--muted); font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">Topic</th>
+          <th style="text-align:left; padding:12px 16px; font-size:11px; color:var(--muted); font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">Course</th>
+          <th style="text-align:left; padding:12px 16px; font-size:11px; color:var(--muted); font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">Mins</th>
+          <th style="text-align:left; padding:12px 16px; font-size:11px; color:var(--muted); font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">Day</th>
+          <th style="padding:12px 16px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sessions %}
+        <tr style="border-top:1px solid var(--border);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+          <td style="padding:12px 16px; font-size:12px; color:var(--muted); white-space:nowrap;">{{ s.date }}</td>
+          <td style="padding:12px 16px;">
+            <div style="font-size:13px; font-weight:500;">{{ s.topic }}</div>
+            {% if s.notes %}
+            <div style="font-size:11px; color:var(--muted); margin-top:2px; font-style:italic;">{{ s.notes }}</div>
+            {% endif %}
+          </td>
+          <td style="padding:12px 16px; font-size:12px; color:var(--muted);">{{ s.course }}</td>
+          <td style="padding:12px 16px; font-size:13px; font-weight:600; color:var(--blue);">{{ s.duration_mins }}</td>
+          <td style="padding:12px 16px;">
+            {% if s.day_type == 'wfh' %}
+            <span style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; background:var(--green-bg); color:var(--green);">WFH</span>
+            {% else %}
+            <span style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; background:var(--amber-bg); color:var(--amber);">Office</span>
+            {% endif %}
+          </td>
+          <td style="padding:12px 16px;">
+            <button
+              onclick="deleteSession({{ s.id }}, this)"
+              style="background:transparent; border:1px solid var(--border2); border-radius:5px; color:var(--muted); font-size:11px; padding:4px 8px; cursor:pointer; transition:all 0.15s;"
+              onmouseover="this.style.borderColor='var(--coral)';this.style.color='var(--coral)'"
+              onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'"
+            >Delete</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Per-course breakdown -->
+  <div class="card" style="margin-top:8px;">
+    <div class="card-title">Time per course</div>
+    <div id="course-breakdown"></div>
+  </div>
+
+  {% else %}
+  <div class="card" style="text-align:center; padding:48px 20px;">
+    <div style="font-size:32px; margin-bottom:12px;">📚</div>
+    <div style="font-size:15px; font-weight:500; margin-bottom:6px;">No sessions yet</div>
+    <div style="font-size:13px; color:var(--muted); margin-bottom:20px;">Log your first session from the Today page</div>
+    <a href="/" class="btn btn-primary">Go to today</a>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+  const sessions = {{ sessions | tojson }};
+  const totals = {};
+  sessions.forEach(s => {
+    totals[s.course] = (totals[s.course] || 0) + s.duration_mins;
+  });
+
+  const colors = {
+    "FastAPI Course": "#378ADD",
+    "Azure AI (AI-102)": "#534AB7",
+    "RAG Applications": "#1D9E75",
+    "LLD Course": "#D85A30",
+    "Multi-agent Project": "#BA7517",
+    "Resume": "#993556",
+  };
+
+  const maxMins = Math.max(...Object.values(totals), 1);
+  const container = document.getElementById('course-breakdown');
+  if (container) {
+    Object.entries(totals).sort((a,b) => b[1]-a[1]).forEach(([name, mins]) => {
+      const color = colors[name] || '#4a9eff';
+      const hrs = (mins/60).toFixed(1);
+      container.innerHTML += `
+        <div style="margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+            <span style="font-size:13px; font-weight:500;">${name}</span>
+            <span style="font-size:12px; color:var(--muted);">${hrs} hrs (${mins} min)</span>
+          </div>
+          <div style="height:6px; background:var(--faint); border-radius:3px; overflow:hidden;">
+            <div style="height:100%; width:${(mins/maxMins*100).toFixed(1)}%; background:${color}; border-radius:3px;"></div>
+          </div>
+        </div>
+      `;
+    });
+  }
+  async function deleteSession(id, btn) {
+    if (!confirm('Delete this session?')) return;
+    const res = await fetch('/session/' + id, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) {
+      const row = btn.closest('tr');
+      row.style.transition = 'opacity 0.2s';
+      row.style.opacity = '0';
+      setTimeout(() => row.remove(), 200);
+    }
+  }
+</script>
+{% endblock %}

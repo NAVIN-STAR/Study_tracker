@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <div class="page-title">{{ view_date_display }}</div>
+      <div class="page-sub">Track your sessions, check off tasks, update progress</div>
+    </div>
+    <div style="display:flex; gap:12px; align-items:center;">
+      <input type="date" id="date-picker" value="{{ view_date }}" max="{{ today }}" 
+             onchange="changeDate(this.value)"
+             style="padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;" />
+      <div class="toggle-group">
+        <button class="toggle-btn {% if day_type == 'wfh' %}active-wfh{% endif %}"
+                onclick="setDayType('wfh')">WFH</button>
+        <button class="toggle-btn {% if day_type == 'office' %}active-office{% endif %}"
+                onclick="setDayType('office')">Office</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="grid3" style="margin-bottom:16px">
+    <div class="stat-card">
+      <div class="stat-label">Today</div>
+      <div class="stat-value" style="color:var(--blue)">{{ stats.today_mins }}<span style="font-size:14px;font-weight:400;color:var(--muted)"> min</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total sessions</div>
+      <div class="stat-value" style="color:var(--purple)">{{ stats.total_sessions }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total hours logged</div>
+      <div class="stat-value" style="color:var(--green)">{{ stats.total_hours }}<span style="font-size:14px;font-weight:400;color:var(--muted)"> hrs</span></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <!-- LEFT COLUMN -->
+    <div>
+
+      <!-- Checklist -->
+      <div class="card">
+        <div class="card-title">
+          {% if day_type == 'wfh' %}
+            WFH day checklist
+          {% else %}
+            Office day checklist
+          {% endif %}
+        </div>
+
+        {% for task in tasks %}
+        <div style="display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);">
+          <button
+            class="check-circle {% if task.key in done_keys %}checked{% endif %}"
+            id="check-{{ task.key }}"
+            onclick="toggleTask('{{ task.key }}', '{{ view_date }}')"
+            aria-label="Toggle {{ task.label }}"
+            style="
+              width:20px; height:20px; min-width:20px; border-radius:50%;
+              border:2px solid {% if task.key in done_keys %}var(--green){% else %}var(--faint){% endif %};
+              background:{% if task.key in done_keys %}var(--green){% else %}transparent{% endif %};
+              cursor:pointer; display:flex; align-items:center; justify-content:center;
+              margin-top:2px; transition:all 0.15s; color:#000; font-size:11px; font-weight:700;
+            "
+          >{% if task.key in done_keys %}✓{% endif %}</button>
+          <div style="flex:1">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span style="font-size:13px; font-weight:500; {% if task.key in done_keys %}color:var(--muted); text-decoration:line-through;{% endif %}">
+                {{ task.label }}
+              </span>
+              <span class="tag tag-{{ task.tag }}">{{ task.tag }}</span>
+            </div>
+            <div style="font-size:11px; color:var(--muted); margin-top:2px;">
+              {{ task.time }} · {{ task.desc }}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+
+        <div style="margin-top:12px; font-size:12px; color:var(--muted);">
+          {{ done_keys|length }} / {{ tasks|length }} done today
+        </div>
+      </div>
+
+      <!-- Streak -->
+      <div class="card">
+        <div class="card-title">Study streak</div>
+        <div id="streak-grid" style="display:flex; flex-wrap:wrap; gap:5px;">
+          <!-- rendered by JS -->
+        </div>
+        <div style="margin-top:10px; font-size:12px; color:var(--muted)">
+          Each square = a day you logged a session
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+
+      <!-- Log session -->
+      <div class="card">
+        <div class="card-title">Log a session</div>
+        <form method="POST" action="/session/add">
+          <input type="hidden" name="day_type" value="{{ day_type }}">
+
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" name="session_date" value="{{ view_date }}" max="{{ today }}" required />
+          </div>
+
+          <div class="form-group">
+            <label>What did you study?</label>
+            <input type="text" name="topic" placeholder="e.g. FastAPI dependency injection" required />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Course / area</label>
+              <select name="course" required>
+                {% for c in courses %}
+                <option value="{{ c.name }}">{{ c.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Duration (minutes)</label>
+              <input type="number" name="duration_mins" placeholder="90" min="5" max="480" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Notes (optional)</label>
+            <textarea name="notes" rows="2" placeholder="Key takeaway, what to revisit..."></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width:100%">Log session</button>
+        </form>
+      </div>
+
+      <!-- Sessions for selected date -->
+      {% if viewed_sessions %}
+      <div class="card">
+        <div class="card-title">Sessions for {{ view_date_display }}</div>
+        {% for s in viewed_sessions %}
+        <div style="padding:10px 0; border-bottom:1px solid var(--border);">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <span style="font-size:13px; font-weight:500;">{{ s.topic }}</span>
+            <span style="font-size:12px; color:var(--muted); white-space:nowrap;">{{ s.duration_mins }} min</span>
+          </div>
+          <div style="font-size:11px; color:var(--muted); margin-top:2px;">{{ s.course }}</div>
+          {% if s.notes %}
+          <div style="font-size:11px; color:var(--muted); margin-top:4px; font-style:italic;">{{ s.notes }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- Course progress -->
+  <div class="card">
+    <div class="card-title">Course progress</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      {% for c in courses %}
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-size:13px; font-weight:500;">{{ c.name }}</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input
+              type="number"
+              min="0" max="100"
+              value="{{ c.progress }}"
+              style="width:56px; padding:4px 8px; font-size:12px; text-align:center;"
+              onchange="updateProgress({{ c.id }}, this.value)"
+            />
+            <span style="font-size:12px; color:var(--muted)">%</span>
+          </div>
+        </div>
+        <div style="height:6px; background:var(--faint); border-radius:3px; overflow:hidden;">
+          <div id="bar-{{ c.id }}" style="height:100%; width:{{ c.progress }}%; background:{{ c.color }}; border-radius:3px; transition:width 0.4s;"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function changeDate(newDate) {
+    const urlParams = new URLSearchParams(window.location.search);
+    window.location.href = '/?view_date=' + newDate + '&day_type=' + (urlParams.get('day_type') || 'wfh');
+  }
+
+  function setDayType(type) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewDate = urlParams.get('view_date') || '{{ today }}';
+    window.location.href = '/?view_date=' + viewDate + '&day_type=' + type;
+  }
+
+  async function toggleTask(taskKey, date) {
+    const res = await fetch('/checklist/toggle', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({date, task_key: taskKey})
+    });
+    const data = await res.json();
+    const btn = document.getElementById('check-' + taskKey);
+    if (data.done) {
+      btn.style.background = 'var(--green)';
+      btn.style.borderColor = 'var(--green)';
+      btn.textContent = '✓';
+      btn.nextElementSibling.querySelector('span').style.cssText += 'color:var(--muted);text-decoration:line-through;';
+    } else {
+      btn.style.background = 'transparent';
+      btn.style.borderColor = 'var(--faint)';
+      btn.textContent = '';
+      btn.nextElementSibling.querySelector('span').style.cssText = '';
+    }
+  }
+
+  async function updateProgress(id, value) {
+    const pct = Math.max(0, Math.min(100, parseInt(value) || 0));
+    await fetch('/course/update', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id, progress: pct})
+    });
+    const bar = document.getElementById('bar-' + id);
+    if (bar) bar.style.width = pct + '%';
+  }
+
+  // Streak grid
+  const streakDates = {{ streak_dates | tojson }};
+  const grid = document.getElementById('streak-grid');
+  const today = new Date();
+
+  // Helper to format date in local timezone (YYYY-MM-DD)
+  const formatLocalDate = (date) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  };
+
+  for (let i = 41; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const iso = formatLocalDate(d);
+    const active = streakDates.includes(iso);
+    const isToday = i === 0;
+
+    const sq = document.createElement('div');
+    sq.title = iso;
+    sq.style.cssText = `
+      width: 14px; height: 14px; border-radius: 3px;
+      background: ${active ? 'var(--green)' : 'var(--faint)'};
+      opacity: ${active ? '1' : '0.4'};
+      border: ${isToday ? '2px solid var(--blue)' : 'none'};
+    `;
+    grid.appendChild(sq);
+  }
+</script>
+{% endblock %}

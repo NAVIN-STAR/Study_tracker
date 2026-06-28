@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Study Tracker — Nabin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f11;
+      --surface: #18181c;
+      --surface2: #1f1f25;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.14);
+      --text: #f0eff4;
+      --muted: #7c7b8a;
+      --faint: #3a3945;
+
+      --blue: #4a9eff;
+      --blue-bg: rgba(74,158,255,0.12);
+      --purple: #8b7cf8;
+      --purple-bg: rgba(139,124,248,0.12);
+      --green: #3ecf8e;
+      --green-bg: rgba(62,207,142,0.1);
+      --amber: #f5a623;
+      --amber-bg: rgba(245,166,35,0.12);
+      --coral: #ff6b6b;
+      --coral-bg: rgba(255,107,107,0.12);
+      --pink: #e879a0;
+      --pink-bg: rgba(232,121,160,0.12);
+
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 56px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .nav-brand {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-brand span {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+    }
+
+    .nav-links { display: flex; gap: 4px; }
+
+    .nav-link {
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      color: var(--muted);
+      transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+
+    .nav-link:hover { color: var(--text); background: var(--surface2); }
+    .nav-link.active { color: var(--text); background: var(--surface2); border-color: var(--border2); }
+
+    .page { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .page-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+    .page-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+    @media (max-width: 600px) {
+      .grid2, .grid3 { grid-template-columns: 1fr; }
+    }
+
+    .stat-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .stat-value { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; }
+
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.02em;
+    }
+
+    .tag-build { background: var(--purple-bg); color: var(--purple); }
+    .tag-learn { background: var(--blue-bg); color: var(--blue); }
+    .tag-resume { background: var(--amber-bg); color: var(--amber); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      color: var(--text);
+      transition: all 0.15s;
+    }
+
+    .btn:hover { background: var(--faint); border-color: var(--border2); }
+
+    .btn-primary {
+      background: var(--blue);
+      color: #000;
+      border-color: transparent;
+      font-weight: 600;
+    }
+
+    .btn-primary:hover { opacity: 0.88; }
+
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+    .toggle-group {
+      display: flex;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .toggle-btn {
+      padding: 6px 16px;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.15s;
+    }
+
+    .toggle-btn.active-wfh { background: var(--green-bg); color: var(--green); }
+    .toggle-btn.active-office { background: var(--amber-bg); color: var(--amber); }
+
+    input, select, textarea {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 13px;
+      padding: 8px 12px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--blue);
+    }
+
+    select option { background: var(--surface2); }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    .form-group { margin-bottom: 14px; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 500px) { .form-row { grid-template-columns: 1fr; } }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <span></span>
+    Study Tracker
+  </div>
+  <div class="nav-links">
+    <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">Today</a>
+    <a href="/sessions" class="nav-link {% if request.url.path == '/sessions' %}active{% endif %}">Sessions</a>
+  </div>
+</nav>
+
+{% block content %}{% endblock %}
+
+</body>
+</html>
