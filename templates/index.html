@@ -56,7 +56,7 @@
           <button
             class="check-circle {% if task.key in done_keys %}checked{% endif %}"
             id="check-{{ task.key }}"
-            onclick="toggleTask('{{ task.key }}', '{{ view_date }}')"
+            onclick="toggleTask('{{ task.key }}', '{{ task.label }}', '{{ task.desc }}', '{{ task.time }}')"
             aria-label="Toggle {{ task.label }}"
             style="
               width:20px; height:20px; min-width:20px; border-radius:50%;
@@ -69,12 +69,12 @@
           <div style="flex:1">
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <span style="font-size:13px; font-weight:500; {% if task.key in done_keys %}color:var(--muted); text-decoration:line-through;{% endif %}">
-                {{ task.label }}
+                {{ task.desc }}
               </span>
               <span class="tag tag-{{ task.tag }}">{{ task.tag }}</span>
             </div>
             <div style="font-size:11px; color:var(--muted); margin-top:2px;">
-              {{ task.time }} · {{ task.desc }}
+              {{ task.time }} · {{ task.label }}
             </div>
           </div>
         </div>
@@ -120,11 +120,13 @@
           <div class="form-row">
             <div class="form-group">
               <label>Course / area</label>
-              <select name="course" required>
-                {% for c in courses %}
-                <option value="{{ c.name }}">{{ c.name }}</option>
-                {% endfor %}
-              </select>
+              <div id="course-field">
+                <select name="course" required>
+                  {% for c in courses %}
+                  <option value="{{ c.name }}">{{ c.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
             </div>
             <div class="form-group">
               <label>Duration (minutes)</label>
@@ -204,25 +206,161 @@
     window.location.href = '/?view_date=' + viewDate + '&day_type=' + type;
   }
 
-  async function toggleTask(taskKey, date) {
+  // Convert time slot like "1:00–2:30" or "9:30–11:00" to duration in minutes
+  // Track all currently checked tasks: { taskKey: { label, desc, timeSlot, course } }
+  const checkedTasks = {};
+
+  const TASK_COURSE_MAP = {
+    'wfh_deep1':     'Multi-agent Project',
+    'wfh_deep2':     'LLD Course',
+    'wfh_study3':    'RAG Applications',
+    'wfh_resume':    'Resume',
+    'wfh_night':     'Multi-agent Project',
+    'wfh_review':    'LLD Course',
+    'off_precommute':'Azure AI (AI-102)',
+    'off_commute':   'Azure AI (AI-102)',
+    'off_night1':    'LLD Course',
+    'off_night2':    'Multi-agent Project',
+  };
+
+  function parseSlotMinutes(timeStr) {
+    const special = {
+        "commute": 60
+    };
+
+    const key = timeStr.trim().toLowerCase();
+    if (special[key] !== undefined) {
+        return special[key];
+    }
+
+    const match = timeStr.match(/(\d+):(\d+)[–-](\d+):(\d+)/);
+    if (!match) return 0;
+
+    let sh = parseInt(match[1]);
+    let sm = parseInt(match[2]);
+    let eh = parseInt(match[3]);
+    let em = parseInt(match[4]);
+
+    // Convert to minutes
+    let start = sh * 60 + sm;
+    let end   = eh * 60 + em;
+
+    // Handle crossing noon (12 -> 1, 2, ...)
+    if (sh === 12 && eh < 12) {
+        end += 12 * 60;
+    }
+
+    // Handle evening crossing midnight if needed
+    if (end < start) {
+        end += 24 * 60;
+    }
+
+    return end - start;
+}
+
+  function setCourseField(uniqueCourses) {
+    const container = document.getElementById('course-field');
+    if (!container) return;
+
+    if (uniqueCourses.length <= 1) {
+      // Show normal dropdown
+      container.innerHTML = `
+        <select name="course" required>
+          {% for c in courses %}
+          <option value="{{ c.name }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      `;
+      if (uniqueCourses.length === 1) {
+        container.querySelector('select').value = uniqueCourses[0];
+      }
+    } else {
+      // Replace dropdown with inline checklist of only the relevant courses
+      container.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:8px; padding:10px 12px;
+                    background:var(--surface2); border:1px solid var(--border2);
+                    border-radius:var(--radius-sm);">
+          ${uniqueCourses.map(course => `
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;
+                          font-size:13px; color:var(--text); font-weight:400; margin:0;">
+              <input type="checkbox" name="course_multi" value="${course}" checked
+                style="width:15px; height:15px; min-width:15px; accent-color:var(--blue);
+                       cursor:pointer; border-radius:3px;" />
+              ${course}
+            </label>
+          `).join('')}
+          <div style="font-size:11px; color:var(--muted); margin-top:2px;">
+            Uncheck any you didn't cover — each will log as a separate session
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  function updateFormFromChecked() {
+    const entries  = Object.values(checkedTasks);
+    const keys     = Object.keys(checkedTasks);
+    const topicEl    = document.querySelector('input[name="topic"]');
+    const notesEl    = document.querySelector('textarea[name="notes"]');
+    const durationEl = document.querySelector('input[name="duration_mins"]');
+    const dateEl     = document.querySelector('input[name="session_date"]');
+    const currentDate = document.getElementById('date-picker').value;
+
+    if (dateEl) dateEl.value = currentDate;
+
+    if (entries.length === 0) {
+      if (topicEl)    topicEl.value    = '';
+      if (notesEl)    notesEl.value    = '';
+      if (durationEl) durationEl.value = '';
+      setCourseField([]);
+      return;
+    }
+
+    const courses = keys.map(k => TASK_COURSE_MAP[k]).filter(Boolean);
+    const uniqueCourses = [...new Set(courses)];
+    setCourseField(uniqueCourses);
+
+    if (entries.length === 1) {
+      const e = entries[0];
+      if (topicEl)    topicEl.value    = e.desc;
+      if (notesEl)    notesEl.value    = e.label;
+      const mins = parseSlotMinutes(e.timeSlot);
+      if (durationEl) durationEl.value = mins || '';
+    } else {
+      if (topicEl)    topicEl.value    = entries.map(e => e.desc).join(' + ');
+      if (notesEl)    notesEl.value    = entries.map((e, i) => `${i + 1}. ${e.desc} (${e.label})`).join('\n');
+      const totalMins = entries.reduce((sum, e) => sum + parseSlotMinutes(e.timeSlot), 0);
+      if (durationEl) durationEl.value = totalMins || '';
+    }
+
+    topicEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  async function toggleTask(taskKey, label, desc, timeSlot) {
+    const currentDate = document.getElementById('date-picker').value;
     const res = await fetch('/checklist/toggle', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({date, task_key: taskKey})
+      body: JSON.stringify({date: currentDate, task_key: taskKey})
     });
     const data = await res.json();
     const btn = document.getElementById('check-' + taskKey);
+
     if (data.done) {
       btn.style.background = 'var(--green)';
       btn.style.borderColor = 'var(--green)';
       btn.textContent = '✓';
       btn.nextElementSibling.querySelector('span').style.cssText += 'color:var(--muted);text-decoration:line-through;';
+      checkedTasks[taskKey] = { label, desc, timeSlot };
     } else {
       btn.style.background = 'transparent';
       btn.style.borderColor = 'var(--faint)';
       btn.textContent = '';
       btn.nextElementSibling.querySelector('span').style.cssText = '';
+      delete checkedTasks[taskKey];
     }
+
+    updateFormFromChecked();
   }
 
   async function updateProgress(id, value) {
@@ -264,5 +402,52 @@
     `;
     grid.appendChild(sq);
   }
+
+
+  // On form submit, if multi-course checklist is shown, log one session per checked course
+  document.querySelector('form[action="/session/add"]').addEventListener('submit', async function(e) {
+    const checkboxes = this.querySelectorAll('input[name="course_multi"]:checked');
+    if (checkboxes.length === 0) return; // single dropdown — submit normally
+
+    e.preventDefault();
+    const topic    = this.querySelector('input[name="topic"]').value;
+    const duration = this.querySelector('input[name="duration_mins"]').value;
+    const date     = this.querySelector('input[name="session_date"]').value;
+    const dayType  = this.querySelector('input[name="day_type"]').value;
+    const notes    = this.querySelector('textarea[name="notes"]').value;
+
+    const selectedCourses = [...checkboxes].map(cb => cb.value);
+    const perCourseMins   = Math.round(parseInt(duration) / selectedCourses.length);
+
+    // Build a reverse map: course -> [tasks that belong to it]
+    const courseToEntries = {};
+    for (const [key, entry] of Object.entries(checkedTasks)) {
+      const course = TASK_COURSE_MAP[key];
+      if (!course || !selectedCourses.includes(course)) continue;
+      if (!courseToEntries[course]) courseToEntries[course] = [];
+      courseToEntries[course].push(entry);
+    }
+
+    for (const course of selectedCourses) {
+      const entries = courseToEntries[course] || [];
+      const courseTopic = entries.length === 1
+        ? entries[0].desc
+        : entries.map(e => e.desc).join(' + ');
+      const courseNotes = entries.length === 1
+        ? entries[0].label
+        : entries.map((e, i) => `${i + 1}. ${e.desc} (${e.label})`).join('\n');
+
+      const fd = new FormData();
+      fd.append('topic',         courseTopic);
+      fd.append('course',        course);
+      fd.append('duration_mins', perCourseMins);
+      fd.append('session_date',  date);
+      fd.append('day_type',      dayType);
+      fd.append('notes',         courseNotes || notes);
+      await fetch('/session/add', { method: 'POST', body: fd, redirect: 'manual' });
+    }
+
+    window.location.href = '/?day_type=' + dayType;
+  });
 </script>
 {% endblock %}

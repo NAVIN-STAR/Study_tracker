@@ -24,33 +24,42 @@
         </tr>
       </thead>
       <tbody>
+        {% set ns = namespace(current_date="") %}
         {% for s in sessions %}
-        <tr style="border-top:1px solid var(--border);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-          <td style="padding:12px 16px; font-size:12px; color:var(--muted); white-space:nowrap;">{{ s.date }}</td>
-          <td style="padding:12px 16px;">
-            <div style="font-size:13px; font-weight:500;">{{ s.topic }}</div>
-            {% if s.notes %}
-            <div style="font-size:11px; color:var(--muted); margin-top:2px; font-style:italic;">{{ s.notes }}</div>
-            {% endif %}
-          </td>
-          <td style="padding:12px 16px; font-size:12px; color:var(--muted);">{{ s.course }}</td>
-          <td style="padding:12px 16px; font-size:13px; font-weight:600; color:var(--blue);">{{ s.duration_mins }}</td>
-          <td style="padding:12px 16px;">
-            {% if s.day_type == 'wfh' %}
-            <span style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; background:var(--green-bg); color:var(--green);">WFH</span>
-            {% else %}
-            <span style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; background:var(--amber-bg); color:var(--amber);">Office</span>
-            {% endif %}
-          </td>
-          <td style="padding:12px 16px;">
-            <button
-              onclick="deleteSession({{ s.id }}, this)"
-              style="background:transparent; border:1px solid var(--border2); border-radius:5px; color:var(--muted); font-size:11px; padding:4px 8px; cursor:pointer; transition:all 0.15s;"
-              onmouseover="this.style.borderColor='var(--coral)';this.style.color='var(--coral)'"
-              onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'"
-            >Delete</button>
-          </td>
-        </tr>
+          {% if s.date != ns.current_date %}
+            {% set ns.current_date = s.date %}
+            <tr>
+              <td colspan="6" style="padding:8px 16px 6px; font-size:11px; font-weight:600; color:var(--muted); letter-spacing:0.06em; text-transform:uppercase; background:var(--surface2); border-top:2px solid var(--border2);">
+                {{ s.date }}
+              </td>
+            </tr>
+          {% endif %}
+          <tr style="border-top:1px solid var(--border);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+            <td style="padding:10px 16px; font-size:12px; color:var(--faint); white-space:nowrap;">—</td>
+            <td style="padding:10px 16px;">
+              <div style="font-size:13px; font-weight:500;">{{ s.topic }}</div>
+              {% if s.notes %}
+              <div style="font-size:11px; color:var(--muted); margin-top:2px; font-style:italic;">{{ s.notes }}</div>
+              {% endif %}
+            </td>
+            <td style="padding:10px 16px; font-size:12px; color:var(--muted);">{{ s.course }}</td>
+            <td style="padding:10px 16px; font-size:13px; font-weight:600; color:var(--blue);">{{ s.duration_mins }}</td>
+            <td style="padding:10px 16px;">
+              {% if s.day_type == 'wfh' %}
+              <span style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; background:var(--green-bg); color:var(--green);">WFH</span>
+              {% else %}
+              <span style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; background:var(--amber-bg); color:var(--amber);">Office</span>
+              {% endif %}
+            </td>
+            <td style="padding:10px 16px;">
+              <button
+                onclick="deleteSession({{ s.id }}, this)"
+                style="background:transparent; border:1px solid var(--border2); border-radius:5px; color:var(--muted); font-size:11px; padding:4px 8px; cursor:pointer; transition:all 0.15s;"
+                onmouseover="this.style.borderColor='var(--coral)';this.style.color='var(--coral)'"
+                onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'"
+              >Delete</button>
+            </td>
+          </tr>
         {% endfor %}
       </tbody>
     </table>
