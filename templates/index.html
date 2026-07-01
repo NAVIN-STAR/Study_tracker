@@ -476,6 +476,21 @@
     checkedTasks[taskKey].notes = text;
   }
 
+  function updatePendingTaskTopic(taskKey, text) {
+    if (!checkedTasks[taskKey]) return;
+    checkedTasks[taskKey].topic = text;
+  }
+  function updatePendingTaskCourse(taskKey, value) {
+    if (!checkedTasks[taskKey]) return;
+    checkedTasks[taskKey].course = value;
+    // auto-set topic/description to the selected course name for convenience
+    const topicInput = document.querySelector(`#pending-course-${taskKey}`)?.closest('div')?.querySelector('input[type=text]');
+    if (topicInput) {
+      topicInput.value = value || '';
+      checkedTasks[taskKey].topic = value || '';
+    }
+  }
+
   function updateCompletedTasksSummary() {
     const container = document.getElementById('completed-summary-card');
     const listEl = document.getElementById('completed-tasks-list');
@@ -498,12 +513,24 @@
       
       const item = document.createElement('div');
       item.style.cssText = 'padding: 8px 0; border-bottom: 1px dashed var(--border);';
+      // build course options (only existing courses)
+      const courseOptions = ['<option value="">Select course</option>']
+        .concat(courses.map(c => `<option value="${escapeHTML(c.name)}">${escapeHTML(c.name)}</option>`))
+        .join('');
       item.innerHTML = `
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
           <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">
             <span style="color: var(--green); font-weight: bold;">✓</span>
-            <span style="font-weight: 500; font-size: 13px; color: var(--text);">${escapeHTML(task.course || '')}</span>
-            <span style="color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis;">— ${escapeHTML(task.topic || '')}</span>
+            <input
+              type="text"
+              value="${escapeHTML(task.topic || '')}"
+              oninput="updatePendingTaskTopic('${taskKey}', this.value)"
+              placeholder="Edit description"
+              style="font-weight:500; font-size:13px; color:var(--text); padding:4px 6px; border:1px solid var(--border); border-radius:6px; background:transparent;"
+            />
+            <select id="pending-course-${taskKey}" onchange="updatePendingTaskCourse('${taskKey}', this.value)" style="font-size:12px; margin-left:6px; padding:4px; border-radius:6px;">
+              ${courseOptions}
+            </select>
           </div>
           <span style="font-weight: 600; font-size: 13px; color: var(--text); white-space: nowrap; margin-left: 8px;">${task.duration_mins} min</span>
         </div>
@@ -519,6 +546,15 @@
         </div>
       `;
       listEl.appendChild(item);
+      // preselect course value if present (only if it exists in the list)
+      const sel = document.getElementById('pending-course-' + taskKey);
+      if (sel) {
+        if (task.course && Array.from(sel.options).some(o => o.value === task.course)) {
+          sel.value = task.course;
+        } else {
+          sel.value = '';
+        }
+      }
     });
     
     totalTimeEl.textContent = totalMins + ' min';
