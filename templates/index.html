@@ -13,10 +13,10 @@
              onchange="changeDate(this.value)"
              style="padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px;" />
       <div class="toggle-group">
-        <button class="toggle-btn {% if day_type == 'wfh' %}active-wfh{% endif %}"
-                onclick="setDayType('wfh')">WFH</button>
-        <button class="toggle-btn {% if day_type == 'office' %}active-office{% endif %}"
-                onclick="setDayType('office')">Office</button>
+        {% for dt in day_types %}
+        <button class="toggle-btn {% if day_type == dt.key %}active-{{ dt.key }}{% endif %}"
+                onclick="setDayType('{{ dt.key }}')">{{ dt.label }}</button>
+        {% endfor %}
       </div>
     </div>
   </div>
@@ -25,15 +25,15 @@
   <div class="grid3" style="margin-bottom:16px">
     <div class="stat-card">
       <div class="stat-label">Today</div>
-      <div class="stat-value" style="color:var(--blue)">{{ stats.today_mins }}<span style="font-size:14px;font-weight:400;color:var(--muted)"> min</span></div>
+      <div class="stat-value" id="stat-today-mins" style="color:var(--blue)">{{ stats.today_mins }}<span style="font-size:14px;font-weight:400;color:var(--muted)"> min</span></div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Total sessions</div>
-      <div class="stat-value" style="color:var(--purple)">{{ stats.total_sessions }}</div>
+      <div class="stat-value" id="stat-total-sessions" style="color:var(--purple)">{{ stats.total_sessions }}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Total hours logged</div>
-      <div class="stat-value" style="color:var(--green)">{{ stats.total_hours }}<span style="font-size:14px;font-weight:400;color:var(--muted)"> hrs</span></div>
+      <div class="stat-value" id="stat-total-hours" style="color:var(--green)">{{ stats.total_hours }}<span style="font-size:14px;font-weight:400;color:var(--muted)"> hrs</span></div>
     </div>
   </div>
 
@@ -43,44 +43,14 @@
 
       <!-- Checklist -->
       <div class="card">
-        <div class="card-title">
-          {% if day_type == 'wfh' %}
-            WFH day checklist
-          {% else %}
-            Office day checklist
-          {% endif %}
+        <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <span>{{ day_type|upper }} day checklist</span>
+          <button type="button" class="btn btn-secondary" onclick="openManageChecklistModal()" style="padding:6px 10px; font-size:12px;">⚙ Manage</button>
         </div>
 
-        {% for task in tasks %}
-        <div style="display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);">
-          <button
-            class="check-circle {% if task.key in done_keys %}checked{% endif %}"
-            id="check-{{ task.key }}"
-            onclick="toggleTask('{{ task.key }}', '{{ task.label }}', '{{ task.desc }}', '{{ task.time }}')"
-            aria-label="Toggle {{ task.label }}"
-            style="
-              width:20px; height:20px; min-width:20px; border-radius:50%;
-              border:2px solid {% if task.key in done_keys %}var(--green){% else %}var(--faint){% endif %};
-              background:{% if task.key in done_keys %}var(--green){% else %}transparent{% endif %};
-              cursor:pointer; display:flex; align-items:center; justify-content:center;
-              margin-top:2px; transition:all 0.15s; color:#000; font-size:11px; font-weight:700;
-            "
-          >{% if task.key in done_keys %}✓{% endif %}</button>
-          <div style="flex:1">
-            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-              <span style="font-size:13px; font-weight:500; {% if task.key in done_keys %}color:var(--muted); text-decoration:line-through;{% endif %}">
-                {{ task.desc }}
-              </span>
-              <span class="tag tag-{{ task.tag }}">{{ task.tag }}</span>
-            </div>
-            <div style="font-size:11px; color:var(--muted); margin-top:2px;">
-              {{ task.time }} · {{ task.label }}
-            </div>
-          </div>
-        </div>
-        {% endfor %}
+        <div id="checklist-items-container"></div>
 
-        <div style="margin-top:12px; font-size:12px; color:var(--muted);">
+        <div style="margin-top:12px; font-size:12px; color:var(--muted);" id="done-count-text">
           {{ done_keys|length }} / {{ tasks|length }} done today
         </div>
       </div>
@@ -101,10 +71,36 @@
     <!-- RIGHT COLUMN -->
     <div>
 
-      <!-- Log session -->
+      <!-- Completed Tasks Summary (Dynamic) -->
+      <div class="card" id="completed-summary-card" style="display: none; border-color: var(--green); transition: all 0.3s ease;">
+        <div class="card-title" style="color: var(--green); display: flex; align-items: center; justify-content: space-between;">
+          <span>Completed Tasks</span>
+          <span class="tag" style="background: var(--green-bg); color: var(--green); border: 1px solid var(--green);">Pending Log</span>
+        </div>
+        
+        <div id="completed-tasks-list" style="margin-bottom: 16px;">
+          <!-- Filled dynamically by JavaScript -->
+        </div>
+        
+        <hr style="border-top: 1px dashed var(--border2);" />
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <span style="font-weight: 600; color: var(--muted);">Total Study Time</span>
+          <span id="completed-total-time" style="font-size: 18px; font-weight: 700; color: var(--green);">0 min</span>
+        </div>
+        
+        <button id="log-completed-btn" onclick="logCompletedTasks()" class="btn btn-primary" style="width: 100%; background: var(--green); color: #000;">
+          Log Completed Tasks
+        </button>
+      </div>
+
+      <!-- Log session (Manual) -->
       <div class="card">
-        <div class="card-title">Log a session</div>
-        <form method="POST" action="/session/add">
+        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;" onclick="toggleManualForm()">
+          <span>Log a session (Manual)</span>
+          <span id="manual-form-arrow" style="font-size: 10px; color: var(--muted); transition: transform 0.2s;">▼</span>
+        </div>
+        <form id="manual-session-form" method="POST" action="/session/add" style="display: none; margin-top: 14px;">
           <input type="hidden" name="day_type" value="{{ day_type }}">
 
           <div class="form-group">
@@ -144,23 +140,23 @@
       </div>
 
       <!-- Sessions for selected date -->
-      {% if viewed_sessions %}
-      <div class="card">
-        <div class="card-title">Sessions for {{ view_date_display }}</div>
-        {% for s in viewed_sessions %}
-        <div style="padding:10px 0; border-bottom:1px solid var(--border);">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-            <span style="font-size:13px; font-weight:500;">{{ s.topic }}</span>
-            <span style="font-size:12px; color:var(--muted); white-space:nowrap;">{{ s.duration_mins }} min</span>
+      <div class="card" id="sessions-today-card" style="{% if not viewed_sessions %}display:none;{% endif %}">
+        <div class="card-title">Sessions for <span id="sessions-date-display">{{ view_date_display }}</span></div>
+        <div id="sessions-today-list">
+          {% for s in viewed_sessions %}
+          <div style="padding:10px 0; border-bottom:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <span style="font-size:13px; font-weight:500;">{{ s.topic }}</span>
+              <span style="font-size:12px; color:var(--muted); white-space:nowrap;">{{ s.duration_mins }} min</span>
+            </div>
+            <div style="font-size:11px; color:var(--muted); margin-top:2px;">{{ s.course }}</div>
+            {% if s.notes %}
+            <div style="font-size:11px; color:var(--muted); margin-top:4px; font-style:italic;">{{ s.notes }}</div>
+            {% endif %}
           </div>
-          <div style="font-size:11px; color:var(--muted); margin-top:2px;">{{ s.course }}</div>
-          {% if s.notes %}
-          <div style="font-size:11px; color:var(--muted); margin-top:4px; font-style:italic;">{{ s.notes }}</div>
-          {% endif %}
+          {% endfor %}
         </div>
-        {% endfor %}
       </div>
-      {% endif %}
 
     </div>
   </div>
@@ -194,6 +190,110 @@
 
 </div>
 
+<!-- Checklist Manage Modal -->
+<div id="manage-tasks-modal" style="position:fixed; inset:0; background:rgba(3,7,18,0.72); backdrop-filter:blur(8px); display:none; align-items:center; justify-content:center; z-index:1200; padding:20px;">
+  <div style="width:min(860px, 100%); max-height:86vh; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:18px; box-shadow:0 20px 60px rgba(0,0,0,0.45); padding:20px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:12px;">
+      <div>
+        <div style="font-size:18px; font-weight:700;">Manage checklist tasks</div>
+        <div style="font-size:12px; color:var(--muted); margin-top:4px;">Add, edit, or remove tasks for each day type.</div>
+      </div>
+      <button type="button" class="btn btn-secondary" onclick="closeManageChecklistModal()">Close</button>
+    </div>
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+      <button type="button" class="toggle-btn active-wfh" data-manage-day="wfh" onclick="openManageChecklistModal('wfh')">WFH</button>
+      <button type="button" class="toggle-btn" data-manage-day="office" onclick="openManageChecklistModal('office')">Office</button>
+      <button type="button" class="toggle-btn" data-manage-day="weekend" onclick="openManageChecklistModal('weekend')">Weekend</button>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1.1fr 0.9fr; gap:16px; align-items:start;">
+      <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:12px;">
+        <div style="font-size:13px; font-weight:600; margin-bottom:10px;">Existing tasks</div>
+        <div id="manage-task-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+      </div>
+
+      <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:12px;">
+        <div style="font-size:13px; font-weight:600; margin-bottom:10px;" id="manage-form-title">Add task</div>
+        <form id="manage-task-form" onsubmit="event.preventDefault(); saveTask();">
+          <input type="hidden" id="manage-task-id" value="">
+          <div class="form-group">
+            <label>Day type</label>
+            <select id="manage-day-type">
+              <option value="wfh">WFH</option>
+              <option value="office">Office</option>
+              <option value="weekend">Weekend</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Label</label>
+            <input type="text" id="manage-label" required />
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="manage-desc" required />
+          </div>
+          <div class="form-group">
+            <label>Time slot</label>
+            <input type="text" id="manage-time" required />
+          </div>
+          <div class="form-group">
+            <label>Course / area</label>
+            <select id="manage-course" required onchange="toggleCustomCourseInput()"></select>
+            <div id="manage-course-custom-group" style="display:none; margin-top:8px;">
+              <input type="text" id="manage-course-custom" placeholder="Enter a custom course / area" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Duration (mins)</label>
+            <input type="number" id="manage-duration" min="5" max="480" required />
+          </div>
+          <div class="form-group">
+            <label>Tag</label>
+            <select id="manage-tag">
+              <option value="build">build</option>
+              <option value="learn">learn</option>
+              <option value="resume">resume</option>
+              <option value="work">work</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Notes</label>
+            <textarea id="manage-notes" rows="2"></textarea>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn btn-primary" style="flex:1;">Save task</button>
+            <button type="button" class="btn btn-secondary" onclick="resetManageTaskForm()">Reset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Success/Error Toast notification -->
+<div id="toast-notification" style="
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--surface);
+  border: 1px solid var(--green);
+  color: var(--text);
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 1000;
+">
+  <span style="color: var(--green); font-weight: bold;">✓</span>
+  <span id="toast-message">Logged successfully!</span>
+</div>
+
 <script>
   function changeDate(newDate) {
     const urlParams = new URLSearchParams(window.location.search);
@@ -206,137 +306,229 @@
     window.location.href = '/?view_date=' + viewDate + '&day_type=' + type;
   }
 
-  // Convert time slot like "1:00–2:30" or "9:30–11:00" to duration in minutes
-  // Track all currently checked tasks: { taskKey: { label, desc, timeSlot, course } }
+  function toggleManualForm() {
+    const form = document.getElementById('manual-session-form');
+    const arrow = document.getElementById('manual-form-arrow');
+    if (!form || !arrow) return;
+    if (form.style.display === 'none') {
+      form.style.display = 'block';
+      arrow.style.transform = 'rotate(180deg)';
+    } else {
+      form.style.display = 'none';
+      arrow.style.transform = 'rotate(0deg)';
+    }
+  }
+
+  function showToast(message, isSuccess = true) {
+    const toast = document.getElementById('toast-notification');
+    const msgSpan = document.getElementById('toast-message');
+    if (!toast || !msgSpan) return;
+    
+    msgSpan.textContent = message;
+    toast.style.borderColor = isSuccess ? 'var(--green)' : 'var(--coral)';
+    
+    const iconSpan = toast.querySelector('span');
+    if (iconSpan) {
+      iconSpan.style.color = isSuccess ? 'var(--green)' : 'var(--coral)';
+      iconSpan.textContent = isSuccess ? '✓' : '✗';
+    }
+    
+    toast.style.transform = 'translateY(0)';
+    toast.style.opacity = '1';
+    setTimeout(() => {
+      toast.style.transform = 'translateY(100px)';
+      toast.style.opacity = '0';
+    }, 4000);
+  }
+
+  const DAY_TASKS = {{ tasks | tojson }};
+  const loggedKeys = {{ logged_keys | tojson }};
+  const doneKeys = {{ done_keys | tojson }};
+  const courses = {{ courses | tojson }};
   const checkedTasks = {};
+  let manageEditingTaskId = null;
+  let manageEditingTaskKey = null;
+  let manageCurrentDayType = '{{ day_type }}';
 
-  const TASK_COURSE_MAP = {
-    'wfh_deep1':     'Multi-agent Project',
-    'wfh_deep2':     'LLD Course',
-    'wfh_study3':    'RAG Applications',
-    'wfh_resume':    'Resume',
-    'wfh_night':     'Multi-agent Project',
-    'wfh_review':    'LLD Course',
-    'off_precommute':'Azure AI (AI-102)',
-    'off_commute':   'Azure AI (AI-102)',
-    'off_night1':    'LLD Course',
-    'off_night2':    'Multi-agent Project',
-  };
+  function initializeCourseOptions(defaultValue = '') {
+    const select = document.getElementById('manage-course');
+    if (!select) return;
+    const currentValue = select.value || defaultValue || '';
+    select.innerHTML = '';
 
-  function parseSlotMinutes(timeStr) {
-    const special = {
-        "commute": 60
+    const addOption = (value, label) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      select.appendChild(option);
     };
 
-    const key = timeStr.trim().toLowerCase();
-    if (special[key] !== undefined) {
-        return special[key];
+    addOption('', 'Select a course');
+    addOption('__custom__', 'Add custom course / area');
+    courses.forEach(course => {
+      addOption(course.name, course.name);
+    });
+
+    if (currentValue && currentValue !== '__custom__') {
+      const hasValue = Array.from(select.options).some(option => option.value === currentValue);
+      if (!hasValue) {
+        addOption(currentValue, currentValue);
+      }
     }
 
-    const match = timeStr.match(/(\d+):(\d+)[–-](\d+):(\d+)/);
-    if (!match) return 0;
+    select.value = currentValue || '';
+    toggleCustomCourseInput();
+  }
 
-    let sh = parseInt(match[1]);
-    let sm = parseInt(match[2]);
-    let eh = parseInt(match[3]);
-    let em = parseInt(match[4]);
-
-    // Convert to minutes
-    let start = sh * 60 + sm;
-    let end   = eh * 60 + em;
-
-    // Handle crossing noon (12 -> 1, 2, ...)
-    if (sh === 12 && eh < 12) {
-        end += 12 * 60;
+  function toggleCustomCourseInput() {
+    const select = document.getElementById('manage-course');
+    const customGroup = document.getElementById('manage-course-custom-group');
+    const customInput = document.getElementById('manage-course-custom');
+    if (!select || !customGroup || !customInput) return;
+    const isCustom = select.value === '__custom__';
+    customGroup.style.display = isCustom ? 'block' : 'none';
+    if (!isCustom) {
+      customInput.value = '';
     }
+  }
 
-    // Handle evening crossing midnight if needed
-    if (end < start) {
-        end += 24 * 60;
-    }
+  function syncCheckedTasksWithDayTasks() {
+    const validKeys = new Set(DAY_TASKS.map(task => task.key || task.task_key));
+    Object.keys(checkedTasks).forEach(key => {
+      if (!validKeys.has(key)) {
+        delete checkedTasks[key];
+      }
+    });
+  }
 
-    return end - start;
-}
+  function initializeCheckedTasks() {
+    doneKeys.forEach(key => {
+      if (!loggedKeys.includes(key)) {
+        const task = DAY_TASKS.find(t => (t.key || t.task_key) === key);
+        if (task) {
+          checkedTasks[key] = {
+            task_key: task.key || task.task_key,
+            topic: task.desc,
+            course: task.course,
+            duration_mins: task.duration_minutes,
+            notes: task.notes
+          };
+        }
+      }
+    });
+    syncCheckedTasksWithDayTasks();
+  }
 
-  function setCourseField(uniqueCourses) {
-    const container = document.getElementById('course-field');
+  function renderChecklist() {
+    const container = document.getElementById('checklist-items-container');
+    const countEl = document.getElementById('done-count-text');
     if (!container) return;
 
-    if (uniqueCourses.length <= 1) {
-      // Show normal dropdown
-      container.innerHTML = `
-        <select name="course" required>
-          {% for c in courses %}
-          <option value="{{ c.name }}">{{ c.name }}</option>
-          {% endfor %}
-        </select>
-      `;
-      if (uniqueCourses.length === 1) {
-        container.querySelector('select').value = uniqueCourses[0];
-      }
-    } else {
-      // Replace dropdown with inline checklist of only the relevant courses
-      container.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:8px; padding:10px 12px;
-                    background:var(--surface2); border:1px solid var(--border2);
-                    border-radius:var(--radius-sm);">
-          ${uniqueCourses.map(course => `
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;
-                          font-size:13px; color:var(--text); font-weight:400; margin:0;">
-              <input type="checkbox" name="course_multi" value="${course}" checked
-                style="width:15px; height:15px; min-width:15px; accent-color:var(--blue);
-                       cursor:pointer; border-radius:3px;" />
-              ${course}
-            </label>
-          `).join('')}
+    container.innerHTML = '';
+    DAY_TASKS.forEach(task => {
+      const taskKey = task.key || task.task_key;
+      const checked = doneKeys.includes(taskKey);
+      const logged = loggedKeys.includes(taskKey);
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);';
+      row.innerHTML = `
+        <button
+          class="check-circle ${checked ? 'checked' : ''}"
+          id="check-${taskKey}"
+          onclick="${logged ? '' : `toggleTask('${taskKey}')`}"
+          aria-label="Toggle ${escapeHTML(task.label || task.desc)}"
+          ${logged ? 'disabled' : ''}
+          style="
+            width:20px; height:20px; min-width:20px; border-radius:50%;
+            border:2px solid ${checked ? 'var(--green)' : 'var(--faint)'};
+            background:${checked ? 'var(--green)' : 'transparent'};
+            cursor:${logged ? 'not-allowed' : 'pointer'}; display:flex; align-items:center; justify-content:center;
+            margin-top:2px; transition:all 0.15s; color:#000; font-size:11px; font-weight:700;
+            opacity:${logged ? '0.85' : '1'};
+          "
+        >${checked ? '✓' : ''}</button>
+        <div style="flex:1">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:13px; font-weight:500; ${checked ? 'color:var(--muted); text-decoration:line-through;' : ''}">
+              ${escapeHTML(task.desc)}
+            </span>
+            <span class="tag tag-${task.tag}">${escapeHTML(task.tag)}</span>
+            <span id="badge-logged-${taskKey}" class="tag" style="background:var(--green-bg); color:var(--green); border:1px solid var(--green); ${logged ? '' : 'display:none;'}">Logged</span>
+          </div>
           <div style="font-size:11px; color:var(--muted); margin-top:2px;">
-            Uncheck any you didn't cover — each will log as a separate session
+            ${escapeHTML(task.time)} · ${escapeHTML(task.label)}
           </div>
         </div>
       `;
+      container.appendChild(row);
+    });
+
+    if (countEl) {
+      const doneCount = DAY_TASKS.filter(task => doneKeys.includes(task.key || task.task_key)).length;
+      countEl.textContent = `${doneCount} / ${DAY_TASKS.length} done today`;
     }
+
+    updateCompletedTasksSummary();
   }
 
-  function updateFormFromChecked() {
-    const entries  = Object.values(checkedTasks);
-    const keys     = Object.keys(checkedTasks);
-    const topicEl    = document.querySelector('input[name="topic"]');
-    const notesEl    = document.querySelector('textarea[name="notes"]');
-    const durationEl = document.querySelector('input[name="duration_mins"]');
-    const dateEl     = document.querySelector('input[name="session_date"]');
-    const currentDate = document.getElementById('date-picker').value;
+  function updatePendingTaskNotes(taskKey, text) {
+    if (!checkedTasks[taskKey]) return;
+    checkedTasks[taskKey].notes = text;
+  }
 
-    if (dateEl) dateEl.value = currentDate;
-
+  function updateCompletedTasksSummary() {
+    const container = document.getElementById('completed-summary-card');
+    const listEl = document.getElementById('completed-tasks-list');
+    const totalTimeEl = document.getElementById('completed-total-time');
+    if (!container || !listEl || !totalTimeEl) return;
+    
+    const entries = Object.entries(checkedTasks);
+    
     if (entries.length === 0) {
-      if (topicEl)    topicEl.value    = '';
-      if (notesEl)    notesEl.value    = '';
-      if (durationEl) durationEl.value = '';
-      setCourseField([]);
+      container.style.display = 'none';
+      return;
+    }
+    
+    container.style.display = 'block';
+    listEl.innerHTML = '';
+    
+    let totalMins = 0;
+    entries.forEach(([taskKey, task]) => {
+      totalMins += task.duration_mins;
+      
+      const item = document.createElement('div');
+      item.style.cssText = 'padding: 8px 0; border-bottom: 1px dashed var(--border);';
+      item.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%;">
+            <span style="color: var(--green); font-weight: bold;">✓</span>
+            <span style="font-weight: 500; font-size: 13px; color: var(--text);">${escapeHTML(task.course || '')}</span>
+            <span style="color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis;">— ${escapeHTML(task.topic || '')}</span>
+          </div>
+          <span style="font-weight: 600; font-size: 13px; color: var(--text); white-space: nowrap; margin-left: 8px;">${task.duration_mins} min</span>
+        </div>
+        <div style="margin-top: 6px; margin-left: 18px;">
+          <label style="display:block; font-size:11px; color:var(--muted); margin-bottom:4px;">Notes (optional)</label>
+          <input
+            type="text"
+            value="${escapeHTML(task.notes || '')}"
+            oninput="updatePendingTaskNotes('${taskKey}', this.value)"
+            placeholder="Add a note"
+            style="width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text); font-size:12px;"
+          />
+        </div>
+      `;
+      listEl.appendChild(item);
+    });
+    
+    totalTimeEl.textContent = totalMins + ' min';
+  }
+
+  async function toggleTask(taskKey) {
+    if (loggedKeys.includes(taskKey)) {
       return;
     }
 
-    const courses = keys.map(k => TASK_COURSE_MAP[k]).filter(Boolean);
-    const uniqueCourses = [...new Set(courses)];
-    setCourseField(uniqueCourses);
-
-    if (entries.length === 1) {
-      const e = entries[0];
-      if (topicEl)    topicEl.value    = e.desc;
-      if (notesEl)    notesEl.value    = e.label;
-      const mins = parseSlotMinutes(e.timeSlot);
-      if (durationEl) durationEl.value = mins || '';
-    } else {
-      if (topicEl)    topicEl.value    = entries.map(e => e.desc).join(' + ');
-      if (notesEl)    notesEl.value    = entries.map((e, i) => `${i + 1}. ${e.desc} (${e.label})`).join('\n');
-      const totalMins = entries.reduce((sum, e) => sum + parseSlotMinutes(e.timeSlot), 0);
-      if (durationEl) durationEl.value = totalMins || '';
-    }
-
-    topicEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  async function toggleTask(taskKey, label, desc, timeSlot) {
     const currentDate = document.getElementById('date-picker').value;
     const res = await fetch('/checklist/toggle', {
       method: 'POST',
@@ -344,23 +536,152 @@
       body: JSON.stringify({date: currentDate, task_key: taskKey})
     });
     const data = await res.json();
-    const btn = document.getElementById('check-' + taskKey);
+    const task = DAY_TASKS.find(t => (t.key || t.task_key) === taskKey);
+
+    if (data.locked) {
+      return;
+    }
 
     if (data.done) {
-      btn.style.background = 'var(--green)';
-      btn.style.borderColor = 'var(--green)';
-      btn.textContent = '✓';
-      btn.nextElementSibling.querySelector('span').style.cssText += 'color:var(--muted);text-decoration:line-through;';
-      checkedTasks[taskKey] = { label, desc, timeSlot };
+      if (!doneKeys.includes(taskKey)) {
+        doneKeys.push(taskKey);
+      }
+      if (!loggedKeys.includes(taskKey) && task) {
+        checkedTasks[taskKey] = {
+          task_key: task.key || task.task_key,
+          topic: task.desc,
+          course: task.course,
+          duration_mins: task.duration_minutes,
+          notes: task.notes
+        };
+      }
     } else {
-      btn.style.background = 'transparent';
-      btn.style.borderColor = 'var(--faint)';
-      btn.textContent = '';
-      btn.nextElementSibling.querySelector('span').style.cssText = '';
+      const doneIndex = doneKeys.indexOf(taskKey);
+      if (doneIndex >= 0) doneKeys.splice(doneIndex, 1);
       delete checkedTasks[taskKey];
     }
 
-    updateFormFromChecked();
+    renderChecklist();
+  }
+
+  async function logCompletedTasks() {
+    const currentDate = document.getElementById('date-picker').value;
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentDayType = urlParams.get('day_type') || 'wfh';
+    
+    const sessions = Object.values(checkedTasks);
+    if (sessions.length === 0) return;
+    
+    const btn = document.getElementById('log-completed-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Logging...';
+    }
+    
+    try {
+      const res = await fetch('/checklist/log', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          date: currentDate,
+          day_type: currentDayType,
+          sessions: sessions
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        for (const key in checkedTasks) {
+          delete checkedTasks[key];
+        }
+        
+        showToast(`Successfully logged ${data.added} session(s)${data.skipped > 0 ? ` (skipped ${data.skipped} duplicate(s))` : ''}`);
+        
+        data.logged_task_keys.forEach(key => {
+          if (!loggedKeys.includes(key)) {
+            loggedKeys.push(key);
+          }
+        });
+        
+        updateStatsUI(data.stats);
+        updateSessionsTodayUI(data.viewed_sessions, currentDate);
+        
+        if (data.streak_dates) {
+          renderStreakGrid(data.streak_dates);
+        }
+
+        renderChecklist();
+      } else {
+        showToast(data.detail || 'Error logging tasks', false);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Network error while logging', false);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Log Completed Tasks';
+      }
+    }
+  }
+
+  function updateStatsUI(stats) {
+    if (!stats) return;
+    const minsEl = document.getElementById('stat-today-mins');
+    const sessionsEl = document.getElementById('stat-total-sessions');
+    const hoursEl = document.getElementById('stat-total-hours');
+    
+    if (minsEl) {
+      minsEl.innerHTML = `${stats.today_mins}<span style="font-size:14px;font-weight:400;color:var(--muted)"> min</span>`;
+    }
+    if (sessionsEl) {
+      sessionsEl.textContent = stats.total_sessions;
+    }
+    if (hoursEl) {
+      hoursEl.innerHTML = `${stats.total_hours}<span style="font-size:14px;font-weight:400;color:var(--muted)"> hrs</span>`;
+    }
+  }
+
+  function escapeHTML(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[tag] || tag));
+  }
+
+  function updateSessionsTodayUI(sessions) {
+    const card = document.getElementById('sessions-today-card');
+    const listEl = document.getElementById('sessions-today-list');
+    
+    if (!card || !listEl) return;
+    
+    if (!sessions || sessions.length === 0) {
+      card.style.display = 'none';
+      listEl.innerHTML = '';
+      return;
+    }
+    
+    card.style.display = 'block';
+    listEl.innerHTML = '';
+    
+    sessions.forEach(s => {
+      const item = document.createElement('div');
+      item.style.cssText = 'padding:10px 0; border-bottom:1px solid var(--border);';
+      item.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <span style="font-size:13px; font-weight:500;">${escapeHTML(s.topic)}</span>
+          <span style="font-size:12px; color:var(--muted); white-space:nowrap;">${s.duration_mins} min</span>
+        </div>
+        <div style="font-size:11px; color:var(--muted); margin-top:2px;">${escapeHTML(s.course)}</div>
+        ${s.notes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px; font-style:italic;">${escapeHTML(s.notes)}</div>` : ''}
+      `;
+      listEl.appendChild(item);
+    });
   }
 
   async function updateProgress(id, value) {
@@ -374,80 +695,208 @@
     if (bar) bar.style.width = pct + '%';
   }
 
-  // Streak grid
-  const streakDates = {{ streak_dates | tojson }};
-  const grid = document.getElementById('streak-grid');
-  const today = new Date();
+  function renderStreakGrid(dates) {
+    const grid = document.getElementById('streak-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const today = new Date();
 
-  // Helper to format date in local timezone (YYYY-MM-DD)
-  const formatLocalDate = (date) => {
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-  };
+    const formatLocalDate = (date) => {
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    };
 
-  for (let i = 41; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const iso = formatLocalDate(d);
-    const active = streakDates.includes(iso);
-    const isToday = i === 0;
+    for (let i = 41; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const iso = formatLocalDate(d);
+      const active = dates.includes(iso);
+      const isToday = i === 0;
 
-    const sq = document.createElement('div');
-    sq.title = iso;
-    sq.style.cssText = `
-      width: 14px; height: 14px; border-radius: 3px;
-      background: ${active ? 'var(--green)' : 'var(--faint)'};
-      opacity: ${active ? '1' : '0.4'};
-      border: ${isToday ? '2px solid var(--blue)' : 'none'};
-    `;
-    grid.appendChild(sq);
+      const sq = document.createElement('div');
+      sq.title = iso;
+      sq.style.cssText = `
+        width: 14px; height: 14px; border-radius: 3px;
+        background: ${active ? 'var(--green)' : 'var(--faint)'};
+        opacity: ${active ? '1' : '0.4'};
+        border: ${isToday ? '2px solid var(--blue)' : 'none'};
+      `;
+      grid.appendChild(sq);
+    }
   }
 
+  function setManageDayTypeButtons(dayType) {
+    document.querySelectorAll('[data-manage-day]').forEach(btn => {
+      const active = btn.getAttribute('data-manage-day') === dayType;
+      btn.style.background = active ? 'var(--green)' : 'transparent';
+      btn.style.color = active ? '#000' : 'var(--text)';
+      btn.style.borderColor = active ? 'var(--green)' : 'var(--border)';
+    });
+  }
 
-  // On form submit, if multi-course checklist is shown, log one session per checked course
-  document.querySelector('form[action="/session/add"]').addEventListener('submit', async function(e) {
-    const checkboxes = this.querySelectorAll('input[name="course_multi"]:checked');
-    if (checkboxes.length === 0) return; // single dropdown — submit normally
+  function openManageChecklistModal(dayType = manageCurrentDayType) {
+    const modal = document.getElementById('manage-tasks-modal');
+    if (!modal) return;
+    manageCurrentDayType = dayType;
+    setManageDayTypeButtons(dayType);
+    document.getElementById('manage-day-type').value = dayType;
+    modal.style.display = 'flex';
+    resetManageTaskForm();
+    loadManageTasks(dayType);
+  }
 
-    e.preventDefault();
-    const topic    = this.querySelector('input[name="topic"]').value;
-    const duration = this.querySelector('input[name="duration_mins"]').value;
-    const date     = this.querySelector('input[name="session_date"]').value;
-    const dayType  = this.querySelector('input[name="day_type"]').value;
-    const notes    = this.querySelector('textarea[name="notes"]').value;
+  function closeManageChecklistModal() {
+    const modal = document.getElementById('manage-tasks-modal');
+    if (modal) modal.style.display = 'none';
+  }
 
-    const selectedCourses = [...checkboxes].map(cb => cb.value);
-    const perCourseMins   = Math.round(parseInt(duration) / selectedCourses.length);
+  async function loadManageTasks(dayType) {
+    const listEl = document.getElementById('manage-task-list');
+    if (!listEl) return;
+    listEl.innerHTML = '<div style="font-size:12px; color:var(--muted);">Loading...</div>';
+    try {
+      const res = await fetch('/checklist/tasks?day_type=' + encodeURIComponent(dayType));
+      const data = await res.json();
+      const tasks = data.tasks || [];
+      listEl.innerHTML = '';
+      if (tasks.length === 0) {
+        listEl.innerHTML = '<div style="font-size:12px; color:var(--muted);">No tasks yet.</div>';
+        return;
+      }
+      tasks.forEach(task => {
+        const card = document.createElement('div');
+        card.style.cssText = 'border:1px solid var(--border); border-radius:10px; padding:10px; background:var(--surface);';
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:start; gap:8px;">
+            <div>
+              <div style="font-size:13px; font-weight:600;">${escapeHTML(task.label)}</div>
+              <div style="font-size:11px; color:var(--muted); margin-top:3px;">${escapeHTML(task.desc)}</div>
+              <div style="font-size:11px; color:var(--muted); margin-top:4px;">${escapeHTML(task.time)} · ${escapeHTML(task.course)} · ${task.duration_minutes} min</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="btn btn-secondary" onclick="editTask(${JSON.stringify(task)})" style="padding:6px 8px; font-size:11px;">Edit</button>
+              <button type="button" class="btn btn-secondary" onclick="deleteTask(${task.id})" style="padding:6px 8px; font-size:11px;">Delete</button>
+            </div>
+          </div>
+        `;
+        listEl.appendChild(card);
+      });
+    } catch (err) {
+      console.error(err);
+      listEl.innerHTML = '<div style="font-size:12px; color:var(--coral);">Unable to load tasks.</div>';
+    }
+  }
 
-    // Build a reverse map: course -> [tasks that belong to it]
-    const courseToEntries = {};
-    for (const [key, entry] of Object.entries(checkedTasks)) {
-      const course = TASK_COURSE_MAP[key];
-      if (!course || !selectedCourses.includes(course)) continue;
-      if (!courseToEntries[course]) courseToEntries[course] = [];
-      courseToEntries[course].push(entry);
+  function resetManageTaskForm() {
+    manageEditingTaskId = null;
+    manageEditingTaskKey = null;
+    document.getElementById('manage-task-id').value = '';
+    document.getElementById('manage-form-title').textContent = 'Add task';
+    document.getElementById('manage-label').value = '';
+    document.getElementById('manage-desc').value = '';
+    document.getElementById('manage-time').value = '';
+    initializeCourseOptions(courses[0]?.name || '');
+    document.getElementById('manage-duration').value = '60';
+    document.getElementById('manage-tag').value = 'learn';
+    document.getElementById('manage-notes').value = '';
+    document.getElementById('manage-day-type').value = manageCurrentDayType;
+  }
+
+  function editTask(task) {
+    manageEditingTaskId = task.id;
+    manageEditingTaskKey = task.task_key || task.key || null;
+    document.getElementById('manage-task-id').value = task.id;
+    document.getElementById('manage-form-title').textContent = 'Edit task';
+    document.getElementById('manage-label').value = task.label || '';
+    document.getElementById('manage-desc').value = task.desc || '';
+    document.getElementById('manage-time').value = task.time || '';
+    initializeCourseOptions(task.course || '');
+    document.getElementById('manage-duration').value = task.duration_minutes || '60';
+    document.getElementById('manage-tag').value = task.tag || 'learn';
+    document.getElementById('manage-notes').value = task.notes || '';
+    document.getElementById('manage-day-type').value = task.day_type || manageCurrentDayType;
+    manageCurrentDayType = task.day_type || manageCurrentDayType;
+    setManageDayTypeButtons(manageCurrentDayType);
+  }
+
+  async function saveTask() {
+    const courseSelect = document.getElementById('manage-course');
+    const customInput = document.getElementById('manage-course-custom');
+    const courseName = courseSelect.value === '__custom__'
+      ? customInput.value.trim()
+      : courseSelect.value.trim();
+
+    if (!courseName) {
+      showToast('Please choose or enter a course / area', false);
+      return;
     }
 
-    for (const course of selectedCourses) {
-      const entries = courseToEntries[course] || [];
-      const courseTopic = entries.length === 1
-        ? entries[0].desc
-        : entries.map(e => e.desc).join(' + ');
-      const courseNotes = entries.length === 1
-        ? entries[0].label
-        : entries.map((e, i) => `${i + 1}. ${e.desc} (${e.label})`).join('\n');
+    const payload = {
+      id: manageEditingTaskId || null,
+      day_type: document.getElementById('manage-day-type').value,
+      label: document.getElementById('manage-label').value.trim(),
+      desc: document.getElementById('manage-desc').value.trim(),
+      time: document.getElementById('manage-time').value.trim(),
+      course: courseName,
+      duration_minutes: Number(document.getElementById('manage-duration').value),
+      tag: document.getElementById('manage-tag').value,
+      notes: document.getElementById('manage-notes').value.trim(),
+      task_key: manageEditingTaskKey || null
+    };
 
-      const fd = new FormData();
-      fd.append('topic',         courseTopic);
-      fd.append('course',        course);
-      fd.append('duration_mins', perCourseMins);
-      fd.append('session_date',  date);
-      fd.append('day_type',      dayType);
-      fd.append('notes',         courseNotes || notes);
-      await fetch('/session/add', { method: 'POST', body: fd, redirect: 'manual' });
+    const endpoint = payload.id ? '/checklist/task/edit' : '/checklist/task/add';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      if (!courses.some(course => course.name === payload.course)) {
+        courses.push({id: null, name: payload.course, progress: 0, color: '#378ADD'});
+      }
+      initializeCourseOptions(payload.course);
+      showToast(payload.id ? 'Task updated' : 'Task added');
+      await refreshDayTasks(payload.day_type);
+      await loadManageTasks(payload.day_type);
+      resetManageTaskForm();
+      document.getElementById('manage-day-type').value = payload.day_type;
+      manageCurrentDayType = payload.day_type;
+      setManageDayTypeButtons(payload.day_type);
+    } else {
+      showToast(data.detail || 'Unable to save task', false);
     }
+  }
 
-    window.location.href = '/?day_type=' + dayType;
-  });
+  async function deleteTask(taskId) {
+    if (!confirm('Delete this checklist task?')) return;
+    const res = await fetch('/checklist/task/' + taskId, {method: 'DELETE'});
+    const data = await res.json();
+    if (res.ok) {
+      showToast('Task deleted');
+      await refreshDayTasks(manageCurrentDayType);
+      await loadManageTasks(manageCurrentDayType);
+    } else {
+      showToast(data.detail || 'Unable to delete task', false);
+    }
+  }
+
+  async function refreshDayTasks(dayType) {
+    try {
+      const res = await fetch('/checklist/tasks?day_type=' + encodeURIComponent(dayType));
+      const data = await res.json();
+      DAY_TASKS.splice(0, DAY_TASKS.length, ...data.tasks || []);
+      syncCheckedTasksWithDayTasks();
+      renderChecklist();
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  initializeCourseOptions();
+  initializeCheckedTasks();
+  renderChecklist();
+  renderStreakGrid({{ streak_dates | tojson }});
 </script>
 {% endblock %}

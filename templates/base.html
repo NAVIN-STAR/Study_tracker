@@ -177,6 +177,20 @@
 
     .btn-sm { padding: 5px 10px; font-size: 12px; }
 
+    .analytics-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; }
+    .analytics-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .metric-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+    .mini-bar { height: 8px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
+    .mini-bar > div { height: 100%; background: linear-gradient(90deg, var(--blue), var(--purple)); border-radius: inherit; }
+    .heatmap-cell { width: 16px; height: 16px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.04); }
+    .heatmap-cell.empty { background: var(--surface2); }
+    .heatmap-cell.low { background: var(--green-bg); }
+    .heatmap-cell.medium { background: var(--green); }
+    .heatmap-cell.high { background: var(--blue); }
+    .activity-bar { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; min-height: 180px; }
+    .activity-bar > div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .activity-bar .bar { width: 100%; max-width: 24px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, var(--blue), var(--purple)); min-height: 6px; }
+
     .toggle-group {
       display: flex;
       background: var(--surface2);
@@ -200,6 +214,7 @@
 
     .toggle-btn.active-wfh { background: var(--green-bg); color: var(--green); }
     .toggle-btn.active-office { background: var(--amber-bg); color: var(--amber); }
+    .toggle-btn.active-weekend { background: var(--purple-bg); color: var(--purple); }
 
     input, select, textarea {
       background: var(--surface2);
@@ -246,6 +261,7 @@
   <div class="nav-links">
     <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">Today</a>
     <a href="/sessions" class="nav-link {% if request.url.path == '/sessions' %}active{% endif %}">Sessions</a>
+    <a href="/analytics" class="nav-link {% if request.url.path == '/analytics' %}active{% endif %}">Analytics</a>
   </div>
 </nav>
 

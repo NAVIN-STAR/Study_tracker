@@ -29,13 +29,19 @@
           {% if s.date != ns.current_date %}
             {% set ns.current_date = s.date %}
             <tr>
-              <td colspan="6" style="padding:8px 16px 6px; font-size:11px; font-weight:600; color:var(--muted); letter-spacing:0.06em; text-transform:uppercase; background:var(--surface2); border-top:2px solid var(--border2);">
+              <td colspan="6" style="padding:8px 16px 6px; font-size:11px; font-weight:700; color:var(--text); letter-spacing:0.06em; text-transform:uppercase; background:var(--surface2); border-top:2px solid var(--border2);">
                 {{ s.date }}
               </td>
             </tr>
           {% endif %}
           <tr style="border-top:1px solid var(--border);" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-            <td style="padding:10px 16px; font-size:12px; color:var(--faint); white-space:nowrap;">—</td>
+            <td style="padding:10px 16px; font-size:13px; font-weight:700; color:var(--blue); white-space:nowrap;">
+              {% if s.task_time %}
+                {{ s.task_time }}
+              {% else %}
+                <span style="color:var(--faint); font-weight:400;">—</span>
+              {% endif %}
+            </td>
             <td style="padding:10px 16px;">
               <div style="font-size:13px; font-weight:500;">{{ s.topic }}</div>
               {% if s.notes %}

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Analytics Dashboard</div>
+      <div class="page-sub">See your study rhythm, course focus, and weekly momentum.</div>
+    </div>
+  </div>
+
+  <div class="grid3" style="margin-bottom:16px;">
+    <div class="stat-card">
+      <div class="stat-label">Today's Study</div>
+      <div class="stat-value">{{ summary.today_mins }}<span style="font-size:14px;font-weight:400;color:var(--muted)"> min</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">This Week</div>
+      <div class="stat-value">{{ summary.week_hours }}<span style="font-size:14px;font-weight:400;color:var(--muted)"> hrs</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Current Streak</div>
+      <div class="stat-value">🔥 {{ summary.current_streak }}<span style="font-size:14px;font-weight:400;color:var(--muted)"> days</span></div>
+    </div>
+  </div>
+
+  <div class="analytics-grid" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-title">Weekly Goal</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div>
+          <div style="font-size:22px; font-weight:700;">{{ weekly.current_mins }} / {{ weekly.goal_mins }} min</div>
+          <div style="font-size:12px; color:var(--muted);">{{ weekly.progress_percent }}% of your weekly target</div>
+        </div>
+        <div class="metric-pill">{{ weekly.remaining_mins }} min left</div>
+      </div>
+      <div class="mini-bar">
+        <div style="width:{{ weekly.progress_percent }}%"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Productivity Snapshot</div>
+      <div class="analytics-grid-2">
+        <div>
+          <div class="metric-pill" style="margin-bottom:8px;">Avg session: {{ productivity.average_session_length }} min</div>
+          <div class="metric-pill" style="margin-bottom:8px;">Daily avg: {{ productivity.average_daily_study_time }} min</div>
+          <div class="metric-pill">Longest: {{ productivity.longest_session }} min</div>
+        </div>
+        <div>
+          <div class="metric-pill" style="margin-bottom:8px;">Most studied: {{ productivity.most_studied_course }}</div>
+          <div class="metric-pill" style="margin-bottom:8px;">Least studied: {{ productivity.least_studied_course }}</div>
+          <div class="metric-pill">Total sessions: {{ productivity.total_sessions }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="analytics-grid" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-title">Study Activity (Last 30 Days)</div>
+      <div class="activity-bar">
+        {% for item in activity %}
+        <div>
+          <div class="bar" style="height: {{ [6, (item.mins / 4) + 6]|max }}px;"></div>
+          <div style="font-size:10px; color:var(--muted);">{{ item.label.split(' ')[0] }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Activity Heatmap</div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        {% for week in heatmap %}
+        <div style="display:flex; gap:6px;">
+          {% for cell in week %}
+          <div class="heatmap-cell {% if cell.mins == 0 %}empty{% elif cell.mins < 90 %}low{% elif cell.mins < 180 %}medium{% else %}high{% endif %}" title="{{ cell.date }}: {{ cell.mins }} min"></div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="analytics-grid" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-title">Course Breakdown</div>
+      {% for item in course_breakdown %}
+      <div style="margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-size:13px; font-weight:600;">{{ item.course }}</span>
+          <span style="font-size:12px; color:var(--muted);">{{ item.mins }} min · {{ item.percent }}%</span>
+        </div>
+        <div class="mini-bar">
+          <div style="width:{{ item.percent }}%"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Day Analysis</div>
+      {% for item in day_analysis %}
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border);">
+        <span>{{ item.day }}</span>
+        <span style="color:var(--muted);">{{ item.hours }} hrs</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="analytics-grid" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-title">Schedule Breakdown</div>
+      {% for item in schedule_breakdown %}
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border);">
+        <span>{{ item.day_type|upper }}</span>
+        <span style="color:var(--muted);">{{ item.hours }} hrs</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Monthly Trend</div>
+      {% for item in monthly_trends %}
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border);">
+        <span>{{ item.month }}</span>
+        <span style="color:var(--muted);">{{ item.hours }} hrs</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="analytics-grid">
+    <div class="card">
+      <div class="card-title">Learning Insights</div>
+      <ul style="padding-left:18px; display:flex; flex-direction:column; gap:8px; color:var(--muted);">
+        {% for insight in insights %}
+        <li>{{ insight }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Recent Activity</div>
+      {% for item in recent_activity %}
+      <div style="padding:8px 0; border-bottom:1px solid var(--border);">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <span style="font-weight:600;">{{ item.topic }}</span>
+          <span style="font-size:12px; color:var(--muted);">{{ item.duration_mins }} min</span>
+        </div>
+        <div style="font-size:12px; color:var(--muted); margin-top:3px;">{{ item.course }} · {{ item.date }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
